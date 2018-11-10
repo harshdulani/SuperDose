@@ -14,7 +14,8 @@ public class GameController : MonoBehaviour
 {
 	[Header("Prefab Management")]
 	public Text gameOverText;
-	public Text gameNameText, scoreText, startText, restartInText;
+	public Text gameNameText, startText, restartInText;
+	public Image progressBarParent, progressBarChild;
 	public GameObject playerPrefab;
 	public bool gameOver, gameStarted, playerAlive;
 
@@ -37,7 +38,7 @@ public class GameController : MonoBehaviour
 	void Awake()
 	{
 		gameOverText.GetComponent<Text> ().enabled = false;
-		scoreText.GetComponent<Text> ().enabled = false;
+		progressBarParent.GetComponent<Image> ().enabled = false;
 		gameNameText.text = "Blood Stream";
 		startText.text = "Press Left Ctrl or Left Mouse to Start.";
 		restartInText.text = "";
@@ -55,11 +56,11 @@ public class GameController : MonoBehaviour
 		{
 			//when NO games have started/ended and someone presses fire
 			gameOverText.GetComponent<Text> ().enabled = false;
-			scoreText.GetComponent<Text> ().enabled = true;
+			progressBarParent.GetComponent<Image> ().enabled = true;
 			StartCoroutine (FadeOut (gameNameText));
 			StartCoroutine (FadeOut (startText));
 			StartCoroutine (FadeOut (restartInText));
-			StartCoroutine (FadeIn (scoreText));
+			//StartCoroutine (FadeIn (scoreText));
 			gameOver = false;
 			gameStarted = true;
 			playerAlive = true;
@@ -72,7 +73,7 @@ public class GameController : MonoBehaviour
 			WaveEnd ();
 		}
 		//else if(Input.GetButtonDown("Fire1") && gameOver && gameStarted) old
-		else if(Input.GetButtonDown("Fire1") && gameOver && gameStarted && !GameObject.FindWithTag("Enemy"))
+		else if(Input.GetButtonDown("Fire1") && gameOver && gameStarted)
 		{
 			//when FIRST game is ended and someone presses fire
 			StartCoroutine (FadeIn (restartInText));
@@ -103,9 +104,9 @@ public class GameController : MonoBehaviour
 		{
 			enemiesKilled += Mathf.Pow(2, enemyLevel - 1);
 			score = (int)(enemiesKilled / totalEnemies * 100f);
+			progressBarChild.fillAmount = score / 100f;
 			//score = (int)enemiesKilled;
 		}
-		scoreText.text = "Cured :" + score + "%";
 		if (playerAlive && !gameOver && enemiesKilled >= totalEnemies)
 		{
 			gameOverText.text = "All Cured Now!";
