@@ -7,7 +7,7 @@ public class EnemyLevelManager : MonoBehaviour
 	//according to level,  add sprites
 	//increase cure level/ score points for higher level enemies
 	//deal with what to do with enemiesKilled
-	//get rid of either enemies killed or enemies spawned in GC
+	////get rid of either enemies killed or enemies spawned in GC
 
 	public float enemyLevel = 0f;
 

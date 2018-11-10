@@ -71,11 +71,12 @@ public class GameController : MonoBehaviour
 			//when there is no player tag obj and game is over
 			WaveEnd ();
 		}
-		else if(Input.GetButtonDown("Fire1") && gameOver && gameStarted)
+		//else if(Input.GetButtonDown("Fire1") && gameOver && gameStarted) old
+		else if(Input.GetButtonDown("Fire1") && gameOver && gameStarted && !GameObject.FindWithTag("Enemy"))
 		{
 			//when FIRST game is ended and someone presses fire
 			StartCoroutine (FadeIn (restartInText));
-			StartCoroutine ("WaitAndGameOver");
+			StartCoroutine ("WaitAndGameOver");			//restart game
 		}
 		if (Input.GetButtonDown ("Cancel"))
 			Application.Quit();
@@ -98,15 +99,16 @@ public class GameController : MonoBehaviour
 
 	public void EnemyKilled(float enemyLevel)
 	{
-		enemiesKilled += Mathf.Pow(2, enemyLevel - 1);
-		if(score <= 100)
+		if(enemiesKilled <= totalEnemies && !gameOver)
 		{
+			enemiesKilled += Mathf.Pow(2, enemyLevel - 1);
 			score = (int)(enemiesKilled / totalEnemies * 100f);
+			//score = (int)enemiesKilled;
 		}
 		scoreText.text = "Cured :" + score + "%";
-		if (playerAlive && !gameOver && enemiesKilled == totalEnemies)
+		if (playerAlive && !gameOver && enemiesKilled >= totalEnemies)
 		{
-			gameOverText.text = "You Won!";
+			gameOverText.text = "All Cured Now!";
 			WaveEnd ();
 		}
 	}
@@ -115,10 +117,41 @@ public class GameController : MonoBehaviour
 	{
 		//add wave end behavior here, like changing next wave enemy count etc
 		StopCoroutine ("EnemySpawner");
+		//KillRemainingEnemies ();	//too buggy will fix later
 		gameOver = true;
 		StartCoroutine (FadeIn (gameOverText));
 		StartCoroutine (FadeIn (startText));
 		StartCoroutine (FadeIn (gameNameText));
+	}
+
+	void KillRemainingEnemies ()
+	{
+		GameObject[] temp = GameObject.FindGameObjectsWithTag ("Enemy");
+		foreach(GameObject i in temp)
+		{
+			//Kill all remaining enemies, after shrinking them
+			//try increasing their rotatespeed a lot
+			//try to kill all using foreach
+			//kill their movetowardsplayer components
+			Destroy (i.GetComponent<MoveTowardsPlayer> ());
+			i.GetComponent<RotateEnemy> ().rotateSpeed = 300f;
+			StartCoroutine(Shrink (i));
+		}
+	}
+
+	public IEnumerator Shrink(GameObject i)
+	{
+        if (i)
+        {
+            for (float f = i.transform.localScale.x; f >= 0.1f; f -= 0.1f)
+            {
+                i.transform.localScale = new Vector3(f, f, 0f);
+                yield return new WaitForSeconds(0.1f);
+            }
+            Destroy(i);
+            gameOver = true;
+            print("game over is true now.");
+        }
 	}
 
 	IEnumerator FadeIn(Text target)

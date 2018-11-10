@@ -11,14 +11,29 @@ public static class PlayArea
 public class PlayerMove : MonoBehaviour
 {
 	public float moveSpeed = 10f;
+	public GameObject mainCamera;
 
 	public PlayArea playArea;
+
+	void Start()
+	{
+		mainCamera = GameObject.FindWithTag ("MainCamera");
+	}
 
 	void Update ()
 	{
 		float moveHorizontal = Input.GetAxis ("Horizontal") * moveSpeed;
 		float moveVertical = Input.GetAxis ("Vertical") * moveSpeed;
-		GetComponent<Rigidbody2D> ().velocity = new Vector3 (moveHorizontal, moveVertical, 0f);
+		Vector3 movementVector = new Vector3 (moveHorizontal, moveVertical, 0f);
+		GetComponent<Rigidbody2D> ().velocity = movementVector;
+		mainCamera.GetComponent<Rigidbody2D> ().velocity = movementVector;
+
+		mainCamera.transform.position = new Vector3
+		(
+			Mathf.Clamp(mainCamera.transform.position.x, -0.25f, 0.25f),
+			Mathf.Clamp(mainCamera.transform.position.y, -0.25f, 0.25f),
+			-10f
+		);
 
 		transform.position = new Vector3
 		(
