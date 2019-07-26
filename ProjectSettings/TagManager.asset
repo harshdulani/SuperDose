@@ -7,6 +7,9 @@ TagManager:
   - Enemy
   - Shot
   - Walls
+  - Joystick
+  - Powerup
+  - Sounds
   layers:
   - Default
   - TransparentFX
@@ -16,8 +19,8 @@ TagManager:
   - UI
   - 
   - 
-  - 
-  - 
+  - BloodflowBG
+  - Bloom
   - 
   - 
   - 

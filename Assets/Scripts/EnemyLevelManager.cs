@@ -14,45 +14,54 @@ public class EnemyLevelManager : MonoBehaviour
 	[Header("Enemy Health System")]
 	public Sprite newSprite;
 	public float health, maxHealth;
+	public Color myWhite, myRed;
+	public AudioClip warning;
 
-	MoveTowardsPlayer mtp;
-	//private GameObject enemyA, enemyB;
+	private MoveTowardsPlayer mtp;
+	private SpriteRenderer bg;
+	private bool lerpFromRedToWhite, lerpFromWhiteToRed;
+	private Color oldColor;
 
 	void Start ()
 	{
 		maxHealth = health;
+		bg = GameObject.Find ("Background").GetComponent<SpriteRenderer> ();
 	}
 
 	public void LevelUp (float oldLevel)
 	{
 		enemyLevel = ++oldLevel;
+		lerpFromRedToWhite = true;
 		health += 100f;
-		transform.localScale = new Vector3 (enemyLevel, enemyLevel, 1f);
+		transform.localScale = new Vector3 (enemyLevel * 0.35f, enemyLevel * 0.35f, 1f);
 		mtp = GetComponent<MoveTowardsPlayer> ();
 		mtp.attackWait += 0.25f;
 		mtp.attackForceHigh -= 75f;
 		mtp.attackForceLow -= 25f;
+		GetComponent<AudioSource> ().PlayOneShot (warning, 0.4f);
 	}
-
-	/*public void FuseEnemy(GameObject a, GameObject b)
-	{
-		if(a != enemyA && a != enemyB && b != enemyA && b != enemyB)	//if the enemies havent already sent request for this too
-		{
-			enemyA = a;
-			enemyB = b;
-			Vector3 oldPosition = a.transform.position;
-			Quaternion oldRotation = a.transform.rotation;
-			GameObject newEnemy = Instantiate (
-				GameObject.FindWithTag ("GameController").GetComponent<GameController> ().enemyPrefab,
-				oldPosition, Quaternion.identity) as GameObject;
-			Destroy (b);
-			newEnemy.GetComponent<EnemyLevelManager> ().LevelUp ();
-			Destroy (a);
-		}
-	}*/
 
 	public void HealthLow()
 	{
 		GetComponent<SpriteRenderer> ().sprite = newSprite;
+	}
+
+	void Update()
+	{
+		if(lerpFromRedToWhite) 
+		{
+			bg.color = Color.Lerp (bg.color, myWhite, 0.35f);
+			if(bg.color == myWhite)
+			{
+				lerpFromRedToWhite = false;
+				lerpFromWhiteToRed = true;
+			}
+		}
+		if(lerpFromWhiteToRed) 
+		{
+			bg.color = Color.Lerp (bg.color, myRed, 0.5f);
+			if (bg.color == myRed) 
+				lerpFromWhiteToRed = false;
+		}
 	}
 }

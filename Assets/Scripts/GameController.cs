@@ -12,75 +12,145 @@ public class PlayArea
 
 public class GameController : MonoBehaviour 
 {
-	[Header("Prefab Management")]
+	[Header("General")]
 	public Text gameOverText;
-	public Text gameNameText, startText, restartInText;
-	public Image progressBarParent, progressBarChild;
+	public string[] gameOverTextOptions;
+	public Text gameNameText, startText, introText, instrText, scoreText, highScoreText;
+	public Image progressBarParent, progressBarChild, newHigh;
+	public Canvas pauseCanvas;
+	public SpriteRenderer cureGlow;
 	public GameObject playerPrefab;
-	public bool gameOver, gameStarted, playerAlive;
+	public bool gameOver, gameStarted, playerAlive, restartable;
+	public float gameOverWait = 4f;
+	public AudioSource menuMusic, gameMusic, beat, ekg, death;
+	public AudioClip flatline, endgame;
 
 	[Header("Enemy Spawner")]
-	public GameObject enemyPrefab;
 	public PlayArea playArea;
-	public float spawnWait = 1f, gameOverWait = 4f;
-	public bool spawnerDebug = false;
+	public GameObject enemyPrefab;
 
-	private float newX, newY;
-	private float enemiesSpawned;
+	private EnemySpawner es;
+
+	[Header("Powerup Spawner")]
+	public float powerupLastActive = 0f;
 
 	[Header("Scoring System")]
 	public float enemiesKilled;
 	public float totalEnemies = 20, healthHit;
 	public int score = 0;
+	public float powerupScoreMultiplier = 1f;
 
-	private GameObject enemyA, enemyB;
+	private GameObject enemyA, enemyB, player;
+	private PutAwayWalls pawL, pawR, pawT, pawB;
 
 	void Awake()
 	{
+		print (SceneManager.sceneCount);
+
+		pauseCanvas.enabled = false;
+		menuMusic = GameObject.Find("Menu Music").GetComponent<AudioSource> ();
+		gameMusic = GameObject.Find("Game Music").GetComponent<AudioSource> ();
+		beat = GameObject.Find("Ambience").GetComponents<AudioSource> ()[1];
+		ekg = GameObject.Find("Ambience").GetComponents<AudioSource> ()[0];
+		gameOverText.text = gameOverTextOptions [Random.Range (0, gameOverTextOptions.Length - 1)];
 		gameOverText.GetComponent<Text> ().enabled = false;
 		progressBarParent.GetComponent<Image> ().enabled = false;
-		gameNameText.text = "Blood Stream";
-		startText.text = "Press Left Ctrl or Left Mouse to Start.";
-		restartInText.text = "";
+		scoreText.GetComponent<Text> ().enabled = false;
+		//cureGlow.enabled = false;
+		highScoreText.text = "★" + PlayerPrefs.GetInt ("HighScore");
+		newHigh.GetComponent<Image> ().enabled = false;
+		newHigh.transform.GetComponentInChildren<Text> ().enabled = false;
+		scoreText.text = "0";
+		gameNameText.text = "Super     \n Dose";
+		startText.text = "Click to Start!";
 		gameOver = true;
 		gameStarted = false;
 		enemiesKilled = 0f;
-		enemiesSpawned = 0f;
-
-		//Cursor.visible = false;	/filhaal no
+		es = GetComponent<EnemySpawner> ();
+		es.enemiesSpawned = 0f;
+		restartable = true;
+		pawL = GameObject.Find ("Left").GetComponent<PutAwayWalls> ();
+		pawR = GameObject.Find ("Right").GetComponent<PutAwayWalls> ();
+		pawT = GameObject.Find ("Top").GetComponent<PutAwayWalls> ();
+		pawB = GameObject.Find ("Bottom").GetComponent<PutAwayWalls> ();
+		cureGlow.transform.localScale = new Vector3 (3f, 3f, 1f);
+		GameObject.Find ("PowerupTimer").GetComponent<Text> ().text = "";
+		GameObject.Find ("PowerupName").GetComponent<Text> ().text = "";
+		GameObject.Find ("PowerupCanvas").transform.GetChild (2).gameObject.SetActive (false);
+		death = transform.GetChild (0).GetComponents<AudioSource> () [0];
 	}
 
 	void Update()
 	{
-		if(Input.GetButtonDown("Fire1") && !gameStarted)
+		if(Input.GetButtonDown("Fire1") && !gameStarted && !pauseCanvas.enabled)
 		{
 			//when NO games have started/ended and someone presses fire
+			menuMusic.Stop ();
+			gameMusic.Play ();
+			beat.Play ();
+			ekg.Play ();
 			gameOverText.GetComponent<Text> ().enabled = false;
+			scoreText.GetComponent<Text> ().enabled = true;
 			progressBarParent.GetComponent<Image> ().enabled = true;
+			//cureGlow.enabled = true;
 			StartCoroutine (FadeOut (gameNameText));
 			StartCoroutine (FadeOut (startText));
-			StartCoroutine (FadeOut (restartInText));
-			//StartCoroutine (FadeIn (scoreText));
+			StartCoroutine (FadeOut (introText));
+			StartCoroutine (FadeOut (instrText));
 			gameOver = false;
 			gameStarted = true;
 			playerAlive = true;
-			Instantiate (playerPrefab, Vector3.zero, Quaternion.identity);
-			StartCoroutine ("EnemySpawner");
+			player = Instantiate (playerPrefab, Vector3.zero, Quaternion.identity);
+			es.StartCoroutine ("Routine");
+			pawL.WallManager (true);
+			pawR.WallManager (true);
+			pawT.WallManager (true);
+			pawB.WallManager (true);
+			powerupLastActive = Time.time;	//so that a powerup doesnt spawn as soon as you start a game if youve waited for a bit
 		}
 		else if (!playerAlive && gameStarted && !gameOver) 
 		{
 			//when there is no player tag obj and game is over
 			WaveEnd ();
 		}
-		//else if(Input.GetButtonDown("Fire1") && gameOver && gameStarted) old
-		else if(Input.GetButtonDown("Fire1") && gameOver && gameStarted)
+		else if(Input.GetButtonDown("Fire1") && gameOver && gameStarted && isRestartable() && restartable)
 		{
 			//when FIRST game is ended and someone presses fire
-			StartCoroutine (FadeIn (restartInText));
-			StartCoroutine ("WaitAndGameOver");			//restart game
+			restartable = false;
+			pawL.WallManager (false);
+			pawR.WallManager (false);
+			pawT.WallManager (false);
+			pawB.WallManager (false);
+			gameMusic.Stop ();
+			menuMusic.Play ();
+			beat.Stop ();
+			ekg.Stop ();
+			SceneManager.LoadScene ("Menu");			//restart game
 		}
-		if (Input.GetButtonDown ("Cancel"))
-			Application.Quit();
+		if (Input.GetButtonDown ("Cancel")) 
+		{
+			//SceneManager.LoadScene ("Menu");
+			pauseCanvas.enabled = !pauseCanvas.enabled;
+			if(player)
+				player.GetComponent<LookAtMouse> ().enabled = !player.GetComponent<LookAtMouse> ().enabled;
+			if(pauseCanvas.enabled == true)
+				Time.timeScale = 0f;
+			else
+				Time.timeScale = 1f;
+		}
+	}
+
+	private bool isRestartable()
+	{
+		if(playerAlive)
+		{
+			if (GameObject.FindGameObjectWithTag ("Enemy"))
+				return false;
+			else
+				return true;
+		}
+		else
+			return true;
 	}
 
 	public void FuseEnemy(GameObject a, GameObject b)
@@ -98,14 +168,16 @@ public class GameController : MonoBehaviour
 		}
 	}
 
-	public void EnemyKilled(float enemyLevel)
+	public void EnemyKilledOld(float enemyLevel)
 	{
 		if(enemiesKilled <= totalEnemies && !gameOver)
 		{
 			enemiesKilled += Mathf.Pow(2, enemyLevel - 1);
 			score = (int)(enemiesKilled / totalEnemies * 100f);
 			progressBarChild.fillAmount = score / 100f;
-			//score = (int)enemiesKilled;
+			//min size of circle is 0.1f, max is 4f
+			float glowStep = 4f / totalEnemies;
+			cureGlow.transform.localScale = new Vector3 (cureGlow.transform.localScale.x + glowStep, cureGlow.transform.localScale.y + glowStep, 1f);
 		}
 		if (playerAlive && !gameOver && enemiesKilled >= totalEnemies)
 		{
@@ -114,50 +186,44 @@ public class GameController : MonoBehaviour
 		}
 	}
 
+	public void EnemyKilled(float enemyLevel)
+	{
+		if(playerAlive && !gameOver)
+		{
+			enemiesKilled += Mathf.Pow(2, enemyLevel - 1) * powerupScoreMultiplier;
+			score = (int)(enemiesKilled * 10f * PlayerPrefs.GetFloat ("Difficulty"));
+			scoreText.text = score.ToString ();
+		}
+	}
+
 	void WaveEnd()
 	{
 		//add wave end behavior here, like changing next wave enemy count etc
-		StopCoroutine ("EnemySpawner");
-		//KillRemainingEnemies ();	//too buggy will fix later
+		es.StopCoroutine ("Routine");
+		death.Play ();
+		death.PlayOneShot (flatline);
+		beat.Stop ();
+		ekg.Stop ();
+		gameMusic.Stop ();
+		gameMusic.clip = endgame;
+		gameMusic.Play ();
 		gameOver = true;
 		StartCoroutine (FadeIn (gameOverText));
 		StartCoroutine (FadeIn (startText));
 		StartCoroutine (FadeIn (gameNameText));
-	}
-
-	void KillRemainingEnemies ()
-	{
-		GameObject[] temp = GameObject.FindGameObjectsWithTag ("Enemy");
-		foreach(GameObject i in temp)
+		highScoreText.GetComponent<Text> ().enabled = true;
+		if (score > PlayerPrefs.GetInt ("HighScore"))
 		{
-			//Kill all remaining enemies, after shrinking them
-			//try increasing their rotatespeed a lot
-			//try to kill all using foreach
-			//kill their movetowardsplayer components
-			Destroy (i.GetComponent<MoveTowardsPlayer> ());
-			i.GetComponent<RotateEnemy> ().rotateSpeed = 300f;
-			StartCoroutine(Shrink (i));
+			PlayerPrefs.SetInt ("HighScore", score);
+			newHigh.GetComponent<Image> ().enabled = true;
+			newHigh.transform.GetComponentInChildren<Text> ().enabled = true;
 		}
-	}
-
-	public IEnumerator Shrink(GameObject i)
-	{
-        if (i)
-        {
-            for (float f = i.transform.localScale.x; f >= 0.1f; f -= 0.1f)
-            {
-                i.transform.localScale = new Vector3(f, f, 0f);
-                yield return new WaitForSeconds(0.1f);
-            }
-            Destroy(i);
-            gameOver = true;
-            print("game over is true now.");
-        }
+		highScoreText.text = "★" + PlayerPrefs.GetInt ("HighScore");
 	}
 
 	IEnumerator FadeIn(Text target)
 	{
-		if(target.text.CompareTo("Blood Stream") != 0)
+		if(target.text.CompareTo(gameNameText.text) != 0)
 			target.GetComponent<Text>().enabled = true;
 		for (float f = 0; f <= 1f; f += 0.1f) 
 		{
@@ -178,76 +244,7 @@ public class GameController : MonoBehaviour
 			target.color = c;
 			yield return new WaitForSeconds(.1f);
 		}
-		if(target.text.CompareTo("Blood Stream") != 0)
+		if(target.text.CompareTo(gameNameText.text) != 0)
 			target.GetComponent<Text>().enabled = !target.GetComponent<Text>().enabled;
-	}
-
-	IEnumerator WaitAndGameOver()
-	{
-		for(float f = gameOverWait; f >= 0f; f -= 0.1f) 
-		{
-			restartInText.text = "Restarting in " + (int)f + "...";
-			yield return new WaitForSeconds (0.1f);
-		}
-		SceneManager.LoadScene (SceneManager.GetActiveScene().name);
-	}
-
-	IEnumerator EnemySpawner()
-	{
-		if(!spawnerDebug)
-		{
-			yield return new WaitForSeconds (3f);
-			while (score <= 100)
-			{
-				float multiplier = 1f;
-				/*
-			 * old spawn system
-			 * if (Random.value <= 0.5f) 
-			{
-				newX = -playArea.xMax + 0.5f;
-				newY = -playArea.yMax + 0.5f;
-				multiplier = 1f;
-			}
-			else 
-			{
-				newX = playArea.xMax - 0.5f;
-				newY = playArea.yMax - 0.5f;
-				multiplier = -1f;
-			}*/
-
-				/*ultra random spawn system
-			newX = Random.Range (-playArea.xMax + 0.25f, playArea.xMax - 0.25f);
-			newY = Random.Range (-playArea.yMax + 0.25f, playArea.yMax - 0.25f);*/
-
-				//new spawn system
-
-				//randomize multiplier value to randomize Min/Max locations
-				if (Random.value <= 0.5f)
-					multiplier = -1f;
-				else
-					multiplier = 1f;
-
-				//spawn system
-				if (Random.value > 0.5f) 
-				{
-					//randomize on X and not Y
-					newY = multiplier * (playArea.yMax - 0.25f);
-					newX = Random.Range (-(playArea.xMax - 0.25f), (playArea.xMax - 0.25f));
-				}
-				else
-				{
-					//randomize on Y and not X
-					newX = multiplier * (playArea.xMax - 0.25f);
-					newY = Random.Range (-(playArea.yMax - 0.25f), (playArea.yMax - 0.25f));
-				}
-
-				//Debug.Log ("New X = " + newX + " New Y = " + newY);
-				Vector3 position = new Vector3 (newX, newY, 0f);
-
-				Instantiate (enemyPrefab, position, Quaternion.identity);
-				enemiesSpawned++;
-				yield return new WaitForSeconds (spawnWait);
-			}
-		}
 	}
 }
